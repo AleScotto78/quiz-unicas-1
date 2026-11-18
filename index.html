@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz UniCassino — CyberChallenge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: sans-serif;
+      background: #f0f2f5;
+    }
+
+    #warning-banner {
+      display: none;
+      background: #c0392b;
+      color: white;
+      text-align: center;
+      padding: 12px;
+      font-weight: bold;
+      font-size: 15px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 999;
+    }
+
+    #header {
+      background: #1a237e;
+      color: white;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+    }
+
+    #header h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    #header span {
+      font-size: 13px;
+      opacity: 0.75;
+    }
+
+    #matricola-box {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+    }
+
+    #matricola-card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 360px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    #matricola-card h2 {
+      color: #1a237e;
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+
+    #matricola-card p {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    #matricola-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 16px;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+
+    #matricola-input:focus {
+      outline: none;
+      border-color: #1a237e;
+    }
+
+    #matricola-btn {
+      width: 100%;
+      padding: 12px;
+      background: #1a237e;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    #matricola-btn:hover {
+      background: #283593;
+    }
+
+    #quiz-container {
+      display: none;
+      padding-top: 56px;
+    }
+
+    iframe {
+      width: 100%;
+      height: calc(100vh - 56px);
+      border: none;
+      display: block;
+    }
+
+    #status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #1a237e;
+      color: white;
+      padding: 6px 16px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+
+    #alert-count {
+      background: #c0392b;
+      color: white;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Banner rosso visibile allo studente quando fa cose sospette -->
+  <div id="warning-banner">
+    ⚠️ Comportamento anomalo rilevato e registrato
+  </div>
+
+  <!-- Popup inserimento matricola -->
+  <div id="matricola-box">
+    <div id="matricola-card">
+      <h2>Quiz UniCassino</h2>
+      <p>Inserisci il tuo numero di matricola per iniziare il quiz</p>
+      <input
+        type="text"
+        id="matricola-input"
+        placeholder="es. 0123456"
+        maxlength="10"
+        autofocus
+      />
+      <button id="matricola-btn" onclick="avviaQuiz()">Inizia il quiz</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div id="header" style="display:none;">
+    <h1>Quiz UniCassino — CyberChallenge.IT</h1>
+    <span id="header-matricola"></span>
+  </div>
+
+  <!-- Contenitore quiz con iframe Google Forms -->
+  <div id="quiz-container">
+    <iframe
+      id="quiz-frame"
+      src="https://docs.google.com/forms/d/e/1U0QOhdXw5WejFrqjIuKRk6sB8G6ISeP8UPGZSHkWR4o/viewform?embedded=true"
+      title="Quiz UniCassino"
+    ></iframe>
+  </div>
+
+  <!-- Barra stato in basso -->
+  <div id="status-bar" style="display:none;">
+    <span id="status-text">Monitoraggio attivo</span>
+    <span>Alert: <span id="alert-count">0</span></span>
+  </div>
+
+  <!-- Firebase SDK (compat — funziona con tag script) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <!-- Config e monitor -->
+  <script src="firebase-config.js"></script>
+  <script src="monitor.js"></script>
+
+</body>
+</html>
