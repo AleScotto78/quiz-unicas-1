@@ -416,17 +416,17 @@
       }
 
       // Raggruppa sessioni per matricola (prendi la più recente)
-      const perStudent ID = {};
+      const perMatricola = {};
       for (const [sessionId, sessione] of Object.entries(data)) {
         const matricola = sessionId.split('_')[0];
         const ts = parseInt(sessionId.split('_')[1]) || 0;
-        if (!perStudent ID[matricola] || ts > perStudent ID[matricola].ts) {
-          perStudent ID[matricola] = { ts, sessione, sessionId };
+        if (!perMatricola[matricola] || ts > perMatricola[matricola].ts) {
+          perMatricola[matricola] = { ts, sessione, sessionId };
         }
       }
 
       const studenti = [];
-      for (const [matricola, { sessione, sessionId }] of Object.entries(perStudent ID)) {
+      for (const [matricola, { sessione, sessionId }] of Object.entries(perMatricola)) {
         const eventi = sessione.eventi ? Object.values(sessione.eventi) : [];
         const stats = calcolaStats(eventi);
         studenti.push({ matricola, eventi, stats, sessionId });
