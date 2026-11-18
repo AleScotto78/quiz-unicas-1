@@ -101,6 +101,78 @@
 
     #refresh-btn:hover { background: #3a63e0; }
 
+    #clean-btn {
+      background: #3d1515;
+      color: #e05555;
+      border: 1px solid #e05555;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    #clean-btn:hover { background: #c0392b; color: white; }
+
+    /* MODAL CONFERMA CLEAN */
+    #clean-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #clean-card {
+      background: #1a1d27;
+      border: 1px solid #e05555;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    #clean-card h3 { color: #e05555; font-size: 20px; margin-bottom: 10px; }
+    #clean-card p  { color: #aaa; font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+
+    .clean-btn-row { display: flex; gap: 12px; justify-content: center; }
+
+    #clean-confirm {
+      background: #c0392b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 28px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #clean-confirm:hover { background: #e05555; }
+
+    #clean-cancel {
+      background: #2a2d3a;
+      color: #aaa;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 28px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #clean-cancel:hover { background: #3a3d4a; color: #fff; }
+
+    #clean-progress {
+      display: none;
+      color: #e05555;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
     /* CARDS STATISTICHE */
     .stats-row {
       display: flex;
@@ -291,8 +363,29 @@
       <h1>📊 Quiz Monitoring Dashboard</h1>
       <span id="last-update">Loading...</span>
     </div>
-    <button id="refresh-btn" onclick="caricaDati()">↻ Refresh</button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="refresh-btn" onclick="caricaDati()">↻ Refresh</button>
+      <button id="clean-btn" onclick="mostraClean()">🗑 Clean Session</button>
+    </div>
   </header>
+
+  <!-- MODAL CONFERMA CLEAN -->
+  <div id="clean-modal">
+    <div id="clean-card">
+      <h3>🗑 Clean Session Data</h3>
+      <p>
+        This will <strong>permanently delete</strong> all monitoring data<br>
+        for the current exam session from Firebase.<br><br>
+        This action <strong>cannot be undone</strong>.<br>
+        Make sure you have already exported the data to Google Sheets.
+      </p>
+      <div class="clean-btn-row">
+        <button id="clean-cancel" onclick="nascondiClean()">Cancel</button>
+        <button id="clean-confirm" onclick="eseguiClean()">🗑 Delete All Data</button>
+      </div>
+      <div id="clean-progress">Deleting data from Firebase...</div>
+    </div>
+  </div>
 
   <!-- Statistiche generali -->
   <div class="stats-row">
@@ -659,6 +752,57 @@
 
   function chiudiDetail() {
     document.getElementById('detail-panel').style.display = 'none';
+  }
+
+  // =====================
+  // CLEAN SESSION
+  // =====================
+  function mostraClean() {
+    document.getElementById('clean-modal').style.display = 'flex';
+  }
+
+  function nascondiClean() {
+    document.getElementById('clean-modal').style.display = 'none';
+    document.getElementById('clean-progress').style.display = 'none';
+  }
+
+  function eseguiClean() {
+    document.getElementById('clean-confirm').disabled = true;
+    document.getElementById('clean-cancel').disabled = true;
+    document.getElementById('clean-progress').style.display = 'block';
+    document.getElementById('clean-progress').textContent = 'Deleting data from Firebase...';
+
+    // Cancella tutto il nodo /sessioni
+    firebase.database().ref('sessioni').remove()
+      .then(function() {
+        document.getElementById('clean-progress').textContent = '✅ All session data deleted successfully.';
+        document.getElementById('clean-progress').style.color = '#3dca7a';
+
+        // Resetta la dashboard
+        document.getElementById('stat-totali').textContent = '0';
+        document.getElementById('stat-alto').textContent   = '0';
+        document.getElementById('stat-medio').textContent  = '0';
+        document.getElementById('stat-basso').textContent  = '0';
+        document.getElementById('stat-incolla').textContent = '0';
+        document.getElementById('stat-tabs').textContent   = '0';
+        document.getElementById('table-body').innerHTML = '';
+        document.getElementById('students-table').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        document.getElementById('last-update').textContent = 'Session cleared — ' + new Date().toLocaleTimeString();
+
+        // Chiudi modal dopo 2 secondi
+        setTimeout(function() {
+          nascondiClean();
+          document.getElementById('clean-confirm').disabled = false;
+          document.getElementById('clean-cancel').disabled = false;
+          document.getElementById('clean-progress').style.color = '#e05555';
+        }, 2000);
+      })
+      .catch(function(err) {
+        document.getElementById('clean-progress').textContent = '❌ Error: ' + err.message;
+        document.getElementById('clean-confirm').disabled = false;
+        document.getElementById('clean-cancel').disabled = false;
+      });
   }
 
   // Aggiornamento automatico ogni 60 secondi
