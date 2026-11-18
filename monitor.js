@@ -60,17 +60,8 @@ function avviaQuiz() {
       });
   } catch(e) {}
 
-  // Quando lo studente torna sulla pagina dopo il form,
-  // controlliamo se l'URL contiene una matricola diversa
-  window.addEventListener('focus', function() {
-    verificaMatricola();
-  });
-
-  document.addEventListener('visibilitychange', function() {
-    if (!document.hidden) {
-      verificaMatricola();
-    }
-  });
+  // La verifica matricola viene gestita dentro avviaMonitor()
+  // insieme al visibilitychange principale — evita listener doppi
 
   // Log inizio sessione con info dispositivo
   logEvent('session_start', {
@@ -248,31 +239,31 @@ function verificaMatricola() {
 function avviaMonitor() {
 
   // =========================================
-  // 1. VISIBILITYCHANGE — funziona su MOBILE!
-  // Il segnale più affidabile su smartphone.
-  // Scatta quando: cambio app, schermo spento,
-  // notifica aperta, split screen attivato.
+  // 1. VISIBILITYCHANGE — unico listener
+  // Gestisce sia il tracking che la verifica
+  // matricola. Un solo listener evita conteggi
+  // doppi su mobile.
   // =========================================
   document.addEventListener('visibilitychange', function() {
+
     if (document.hidden) {
+      // --- USCITA dalla pagina ---
       blurTime = Date.now();
+      appSwitchCount++;
 
       logEvent('app_switch', {
-        direzione: 'uscita',
-        note: 'Studente ha lasciato la pagina (switch app o schermo spento)'
+        n_switch: appSwitchCount
       });
 
     } else {
-      // Calcola quanto tempo è stato via
+      // --- RIENTRO nella pagina ---
+
+      // 1. Calcola tempo fuori
       if (blurTime) {
         var secondiFuori = Math.round((Date.now() - blurTime) / 1000);
         totalAppSwitchSec += secondiFuori;
-        appSwitchCount++;
 
-        // =============================================
-        // PUNTEGGIO SOSPETTO per switch app
-        // Più tempo fuori = più probabile consultazione AI
-        // =============================================
+        // Calcola punteggio sospetto
         var punteggioSwitch = 0;
         var motivazione = '';
 
@@ -293,14 +284,12 @@ function avviaMonitor() {
           motivazione = 'Away <5s — likely accidental';
         }
 
-        // Punteggio extra se tanti switch in poco tempo
         if (appSwitchCount >= 5) {
           punteggioSwitch += 10;
           motivazione += ' + frequent switches';
         }
 
         logEvent('app_return', {
-          direzione: 'rientro',
           secondi_fuori: secondiFuori,
           totale_fuori_sec: totalAppSwitchSec,
           n_switch: appSwitchCount,
@@ -309,7 +298,7 @@ function avviaMonitor() {
           sospetto: secondiFuori > 15
         });
 
-        // Aggiorna il riepilogo nella sessione con punteggio totale
+        // Aggiorna riepilogo su Firebase
         try {
           firebase.database()
             .ref('sessioni/' + sessionId + '/riepilogo')
@@ -321,17 +310,18 @@ function avviaMonitor() {
             });
         } catch(e) {}
 
-        // Mostra banner se switch sospetto
+        // Banner visivo se sospetto
         if (secondiFuori >= 15) {
           var banner = document.getElementById('warning-banner');
           banner.style.display = 'block';
-          setTimeout(function() {
-            banner.style.display = 'none';
-          }, 3000);
+          setTimeout(function() { banner.style.display = 'none'; }, 3000);
         }
 
         blurTime = null;
       }
+
+      // 2. Verifica matricola al rientro
+      verificaMatricola();
     }
   });
 
