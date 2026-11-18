@@ -197,24 +197,66 @@ function avviaMonitor() {
         totalAppSwitchSec += secondiFuori;
         appSwitchCount++;
 
+        // =============================================
+        // PUNTEGGIO SOSPETTO per switch app
+        // Più tempo fuori = più probabile consultazione AI
+        // =============================================
+        var punteggioSwitch = 0;
+        var motivazione = '';
+
+        if (secondiFuori >= 60) {
+          punteggioSwitch = 40;
+          motivazione = 'Fuori >60 sec — molto sospetto';
+        } else if (secondiFuori >= 30) {
+          punteggioSwitch = 25;
+          motivazione = 'Fuori 30-60 sec — sospetto';
+        } else if (secondiFuori >= 15) {
+          punteggioSwitch = 15;
+          motivazione = 'Fuori 15-30 sec — possibile consultazione';
+        } else if (secondiFuori >= 5) {
+          punteggioSwitch = 5;
+          motivazione = 'Fuori 5-15 sec — notifica o distrazione';
+        } else {
+          punteggioSwitch = 0;
+          motivazione = 'Fuori <5 sec — probabilmente accidentale';
+        }
+
+        // Punteggio extra se tanti switch in poco tempo
+        if (appSwitchCount >= 5) {
+          punteggioSwitch += 10;
+          motivazione += ' + switch frequenti';
+        }
+
         logEvent('app_return', {
           direzione: 'rientro',
           secondi_fuori: secondiFuori,
           totale_fuori_sec: totalAppSwitchSec,
           n_switch: appSwitchCount,
-          sospetto: secondiFuori > 15 // >15 secondi fuori = sospetto
+          punteggio_switch: punteggioSwitch,
+          motivazione: motivazione,
+          sospetto: secondiFuori > 15
         });
 
-        // Aggiorna il riepilogo nella sessione
+        // Aggiorna il riepilogo nella sessione con punteggio totale
         try {
           firebase.database()
             .ref('sessioni/' + sessionId + '/riepilogo')
             .set({
               totale_fuori_sec: totalAppSwitchSec,
               n_switch: appSwitchCount,
-              studentId: studentId
+              studentId: studentId,
+              ultimo_switch_sec: secondiFuori
             });
         } catch(e) {}
+
+        // Mostra banner se switch sospetto
+        if (secondiFuori >= 15) {
+          var banner = document.getElementById('warning-banner');
+          banner.style.display = 'block';
+          setTimeout(function() {
+            banner.style.display = 'none';
+          }, 3000);
+        }
 
         blurTime = null;
       }

@@ -458,21 +458,19 @@
 
       if (e.dispositivo === 'mobile') isMobile = true;
 
-      // App switch mobile — peso extra se >15 secondi fuori
+      // App switch mobile
       if (e.type === 'app_switch') {
         appSwitch++;
-        rischio += 15;
         continue;
       }
 
-      // Rientro — calcola tempo fuori
+      // Rientro — usa il punteggio calcolato dal monitor
       if (e.type === 'app_return') {
         const sec = e.secondi_fuori || 0;
         totaleFuoriSec += sec;
         if (sec > maxSecFuori) maxSecFuori = sec;
-        // Peso extra se >15 sec fuori (abbastanza per copiare da AI)
-        if (sec > 15) rischio += 20;
-        else if (sec > 5) rischio += 8;
+        // Usa il punteggio già calcolato dal monitor.js
+        rischio += e.punteggio_switch || 0;
         continue;
       }
 
