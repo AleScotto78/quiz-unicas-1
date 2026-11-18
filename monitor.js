@@ -1,16 +1,25 @@
 // =============================================
 // QUIZ MONITOR — UniCassino CyberChallenge.IT
+// Ottimizzato per MOBILE + Desktop
 // =============================================
 
 let studentId = null;
 let sessionId = null;
 let startTime = null;
 let alertCount = 0;
-let devToolsOpen = false;
+let isMobile = false;
+
+// Tempi per rilevare app-switch su mobile
+let blurTime = null;
+let totalAppSwitchSec = 0;
+let appSwitchCount = 0;
+
+// Rilevamento velocità di risposta
+let ultimoInterazione = Date.now();
 
 // --- Avvia il quiz dopo inserimento matricola ---
 function avviaQuiz() {
-  const input = document.getElementById('matricola-input').value.trim();
+  var input = document.getElementById('matricola-input').value.trim();
 
   if (!input || input.length < 4) {
     document.getElementById('matricola-input').style.borderColor = '#c0392b';
@@ -22,6 +31,9 @@ function avviaQuiz() {
   sessionId = studentId + '_' + Date.now();
   startTime = Date.now();
 
+  // Rileva se mobile
+  isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
   // Nascondi popup, mostra quiz
   document.getElementById('matricola-box').style.display = 'none';
   document.getElementById('quiz-container').style.display = 'block';
@@ -29,14 +41,21 @@ function avviaQuiz() {
   document.getElementById('status-bar').style.display = 'flex';
   document.getElementById('header-matricola').textContent = 'Matricola: ' + studentId;
 
-  // Log inizio sessione
+  // Costruisce il link Google Form con matricola pre-compilata
+  var formBase = "https://docs.google.com/forms/d/e/1FAIpQLSfw__-VcgEdEl15oPAvf6JKy01WY2IKPezdxEFVTP6X4FvZiQ/viewform";
+  var formUrl  = formBase + "?entry.733158104=" + encodeURIComponent(studentId);
+  document.getElementById('quiz-link').href = formUrl;
+
+  // Log inizio sessione con info dispositivo
   logEvent('session_start', {
     userAgent: navigator.userAgent,
+    dispositivo: isMobile ? 'mobile' : 'desktop',
     screen: screen.width + 'x' + screen.height,
-    language: navigator.language
+    language: navigator.language,
+    touchscreen: ('ontouchstart' in window),
+    ora_inizio: new Date().toLocaleTimeString('it-IT')
   });
 
-  // Avvia tutti i monitor
   avviaMonitor();
 }
 
@@ -44,14 +63,14 @@ function avviaQuiz() {
 function logEvent(type, detail) {
   detail = detail || {};
 
-  const evento = {
+  var evento = {
     type: type,
     timestamp: Date.now(),
     elapsed_sec: Math.round((Date.now() - startTime) / 1000),
-    studentId: studentId
+    studentId: studentId,
+    dispositivo: isMobile ? 'mobile' : 'desktop'
   };
 
-  // Unisci i dettagli extra
   Object.assign(evento, detail);
 
   // Salva su Firebase
@@ -63,14 +82,20 @@ function logEvent(type, detail) {
     console.warn('Errore Firebase:', e);
   }
 
-  // Aggiorna contatore alert visibile
-  const tipiSospetti = ['cambio_tab', 'incolla', 'devtools', 'finestra_ridotta'];
+  // Aggiorna contatore alert
+  var tipiSospetti = [
+    'app_switch',       // mobile: switch ad altra app
+    'cambio_tab',       // browser: cambio scheda
+    'incolla',          // copia-incolla
+    'touch_sospetto',   // mobile: gesture anomala
+    'velocita_sospetta' // risposta troppo rapida
+  ];
+
   if (tipiSospetti.includes(type)) {
     alertCount++;
     document.getElementById('alert-count').textContent = alertCount;
 
-    // Mostra banner rosso per 3 secondi
-    const banner = document.getElementById('warning-banner');
+    var banner = document.getElementById('warning-banner');
     banner.style.display = 'block';
     setTimeout(function() {
       banner.style.display = 'none';
@@ -80,28 +105,125 @@ function logEvent(type, detail) {
   console.log('[MONITOR]', evento);
 }
 
-// --- Avvia tutti i listener ---
+// =============================================
+// MONITOR PRINCIPALE
+// =============================================
 function avviaMonitor() {
 
-  // 1. Cambio di tab (lo studente passa ad un'altra scheda)
+  // =========================================
+  // 1. VISIBILITYCHANGE — funziona su MOBILE!
+  // Il segnale più affidabile su smartphone.
+  // Scatta quando: cambio app, schermo spento,
+  // notifica aperta, split screen attivato.
+  // =========================================
   document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
-      logEvent('cambio_tab', { nascosto: true });
+      blurTime = Date.now();
+
+      logEvent('app_switch', {
+        direzione: 'uscita',
+        note: 'Studente ha lasciato la pagina (switch app o schermo spento)'
+      });
+
     } else {
-      logEvent('ritorno_tab', { nascosto: false });
+      // Calcola quanto tempo è stato via
+      if (blurTime) {
+        var secondiFuori = Math.round((Date.now() - blurTime) / 1000);
+        totalAppSwitchSec += secondiFuori;
+        appSwitchCount++;
+
+        logEvent('app_return', {
+          direzione: 'rientro',
+          secondi_fuori: secondiFuori,
+          totale_fuori_sec: totalAppSwitchSec,
+          n_switch: appSwitchCount,
+          sospetto: secondiFuori > 15 // >15 secondi fuori = sospetto
+        });
+
+        // Aggiorna il riepilogo nella sessione
+        try {
+          firebase.database()
+            .ref('sessioni/' + sessionId + '/riepilogo')
+            .set({
+              totale_fuori_sec: totalAppSwitchSec,
+              n_switch: appSwitchCount,
+              studentId: studentId
+            });
+        } catch(e) {}
+
+        blurTime = null;
+      }
     }
   });
 
-  // 2. Finestra perde il focus (es. passa ad altra app)
-  window.addEventListener('blur', function() {
-    logEvent('finestra_blur');
+  // =========================================
+  // 2. PAGEHIDE — alternativa a beforeunload
+  // Su mobile beforeunload non è affidabile,
+  // pagehide funziona meglio su iOS/Android.
+  // =========================================
+  window.addEventListener('pagehide', function() {
+    logEvent('sessione_fine', {
+      durata_sec: Math.round((Date.now() - startTime) / 1000),
+      totale_fuori_sec: totalAppSwitchSec,
+      n_switch: appSwitchCount
+    });
   });
 
-  window.addEventListener('focus', function() {
-    logEvent('finestra_focus');
+  // Mantieni anche beforeunload per desktop
+  window.addEventListener('beforeunload', function() {
+    logEvent('sessione_fine', {
+      durata_sec: Math.round((Date.now() - startTime) / 1000),
+      totale_fuori_sec: totalAppSwitchSec,
+      n_switch: appSwitchCount
+    });
   });
 
-  // 3. Incolla testo (copia-incolla da ChatGPT o simili)
+  // =========================================
+  // 3. TOUCH ANOMALO — solo mobile
+  // Rileva gesture multitouch insolite
+  // (es. screenshot con due dita, zoom rapido)
+  // =========================================
+  if (isMobile) {
+    var touchCount = 0;
+    var touchRapidi = 0;
+    var ultimoTouch = 0;
+
+    document.addEventListener('touchstart', function(e) {
+      var ora = Date.now();
+
+      // Touch molto rapido (meno di 200ms dall'ultimo) = copia automatica?
+      if (ora - ultimoTouch < 200) {
+        touchRapidi++;
+        if (touchRapidi > 5) {
+          logEvent('touch_sospetto', {
+            tipo: 'tap_rapidi',
+            count: touchRapidi,
+            note: 'Possibile copia automatica o interazione anomala'
+          });
+          touchRapidi = 0;
+        }
+      } else {
+        touchRapidi = 0;
+      }
+
+      // Multitouch (>2 dita = screenshot su molti telefoni)
+      if (e.touches.length >= 3) {
+        logEvent('touch_sospetto', {
+          tipo: 'multitouch',
+          dita: e.touches.length,
+          note: 'Possibile screenshot (3+ dita)'
+        });
+      }
+
+      ultimoTouch = ora;
+    }, { passive: true });
+  }
+
+  // =========================================
+  // 4. INCOLLA — funziona anche su mobile
+  // se lo studente copia da un'altra app
+  // e incolla nel form (raro ma possibile)
+  // =========================================
   document.addEventListener('paste', function(e) {
     var testo = '';
     if (e.clipboardData) {
@@ -109,81 +231,83 @@ function avviaMonitor() {
     }
     logEvent('incolla', {
       lunghezza: testo.length,
-      anteprima: testo.slice(0, 60)
+      anteprima: testo.slice(0, 80),
+      sospetto_ai: testo.length > 80 // testo lungo = probabilmente da AI
     });
   });
 
-  // 4. Rilevamento DevTools aperti (tramite differenza dimensioni finestra)
+  // =========================================
+  // 5. VELOCITÀ DI RISPOSTA SOSPETTA
+  // Monitora il tempo totale della sessione.
+  // Un quiz da 20 domande completato in <3 min
+  // su mobile è statisticamente anomalo.
+  // =========================================
   setInterval(function() {
-    var soglia = 160;
-    var diffW = window.outerWidth - window.innerWidth;
-    var diffH = window.outerHeight - window.innerHeight;
+    var elapsed = Math.round((Date.now() - startTime) / 1000);
 
-    if (diffW > soglia || diffH > soglia) {
-      if (!devToolsOpen) {
-        devToolsOpen = true;
-        logEvent('devtools', { aperto: true });
-      }
-    } else {
-      if (devToolsOpen) {
-        devToolsOpen = false;
-        logEvent('devtools', { aperto: false });
-      }
-    }
-  }, 2000);
+    // Salva snapshot ogni 30 secondi
+    try {
+      firebase.database()
+        .ref('sessioni/' + sessionId + '/snapshot')
+        .set({
+          elapsed_sec: elapsed,
+          n_switch: appSwitchCount,
+          totale_fuori_sec: totalAppSwitchSec,
+          alert_count: alertCount,
+          studentId: studentId,
+          ultimo_aggiornamento: new Date().toLocaleTimeString('it-IT')
+        });
+    } catch(e) {}
+  }, 30000);
 
-  // 5. Ridimensionamento anomalo della finestra
-  var lastW = window.innerWidth;
-  window.addEventListener('resize', function() {
-    var nuovaW = window.innerWidth;
-    if (Math.abs(nuovaW - lastW) > 200) {
-      logEvent('finestra_ridotta', {
-        larghezza: nuovaW,
-        altezza: window.innerHeight
-      });
-    }
-    lastW = nuovaW;
-  });
-
-  // 6. Tasto destro (potrebbe aprire ispeziona elemento)
-  document.addEventListener('contextmenu', function() {
-    logEvent('tasto_destro');
-  });
-
-  // 7. Scorciatoie da tastiera sospette (F12, Ctrl+Shift+I, Ctrl+U)
-  document.addEventListener('keydown', function(e) {
-    var sospetto = false;
-    var desc = '';
-
-    if (e.key === 'F12') {
-      sospetto = true; desc = 'F12';
-    }
-    if (e.ctrlKey && e.shiftKey && e.key === 'I') {
-      sospetto = true; desc = 'Ctrl+Shift+I';
-    }
-    if (e.ctrlKey && e.shiftKey && e.key === 'J') {
-      sospetto = true; desc = 'Ctrl+Shift+J';
-    }
-    if (e.ctrlKey && e.key === 'u') {
-      sospetto = true; desc = 'Ctrl+U (visualizza sorgente)';
-    }
-
-    if (sospetto) {
-      logEvent('scorciatoia_sospetta', { tasto: desc });
-    }
-  });
-
-  // 8. Log di chiusura pagina
-  window.addEventListener('beforeunload', function() {
-    logEvent('sessione_fine', {
-      durata_sec: Math.round((Date.now() - startTime) / 1000)
-    });
-  });
-
-  // 9. Ping ogni 60 secondi (verifica che lo studente sia ancora presente)
+  // =========================================
+  // 6. PING ogni 60 secondi
+  // Verifica presenza continua dello studente
+  // =========================================
   setInterval(function() {
     logEvent('ping', {
-      durata_sec: Math.round((Date.now() - startTime) / 1000)
+      elapsed_sec: Math.round((Date.now() - startTime) / 1000),
+      n_switch_totali: appSwitchCount,
+      secondi_fuori_totali: totalAppSwitchSec
     });
   }, 60000);
+
+  // =========================================
+  // 7. DESKTOP ONLY — eventi non mobile
+  // =========================================
+  if (!isMobile) {
+
+    // DevTools
+    var devToolsOpen = false;
+    setInterval(function() {
+      var diffW = window.outerWidth - window.innerWidth;
+      var diffH = window.outerHeight - window.innerHeight;
+      if (diffW > 160 || diffH > 160) {
+        if (!devToolsOpen) {
+          devToolsOpen = true;
+          logEvent('devtools', { aperto: true });
+        }
+      } else {
+        if (devToolsOpen) {
+          devToolsOpen = false;
+          logEvent('devtools', { aperto: false });
+        }
+      }
+    }, 2000);
+
+    // Scorciatoie tastiera
+    document.addEventListener('keydown', function(e) {
+      var desc = '';
+      if (e.key === 'F12') desc = 'F12';
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') desc = 'Ctrl+Shift+I';
+      if (e.ctrlKey && e.shiftKey && e.key === 'J') desc = 'Ctrl+Shift+J';
+      if (e.ctrlKey && e.key === 'u') desc = 'Ctrl+U';
+      if (desc) logEvent('scorciatoia_sospetta', { tasto: desc });
+    });
+
+    // Tasto destro
+    document.addEventListener('contextmenu', function() {
+      logEvent('tasto_destro');
+    });
+  }
 }
