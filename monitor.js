@@ -14,8 +14,9 @@ let blurTime = null;
 let totalAppSwitchSec = 0;
 let appSwitchCount = 0;
 
-// Rilevamento velocità di risposta
-let ultimoInterazione = Date.now();
+// Timer quiz
+const DURATA_QUIZ_MIN = 30;
+let timerInterval = null;
 
 // --- Avvia il quiz dopo inserimento matricola ---
 function avviaQuiz() {
@@ -23,7 +24,7 @@ function avviaQuiz() {
 
   if (!input || input.length < 4) {
     document.getElementById('matricola-input').style.borderColor = '#c0392b';
-    document.getElementById('matricola-input').placeholder = 'Inserisci la matricola!';
+    document.getElementById('matricola-input').placeholder = 'Please enter your student ID!';
     return;
   }
 
@@ -39,7 +40,7 @@ function avviaQuiz() {
   document.getElementById('quiz-container').style.display = 'block';
   document.getElementById('header').style.display = 'flex';
   document.getElementById('status-bar').style.display = 'flex';
-  document.getElementById('header-matricola').textContent = 'Matricola: ' + studentId;
+  document.getElementById('header-matricola').textContent = 'Student ID: ' + studentId;
 
   // Costruisce il link Google Form con matricola pre-compilata
   // Usa sempre l'URL senza /u/X/ per evitare problemi con account multipli
@@ -81,6 +82,7 @@ function avviaQuiz() {
     ora_inizio: new Date().toLocaleTimeString('it-IT')
   });
 
+  avviaTimer();
   avviaMonitor();
 }
 
@@ -131,6 +133,76 @@ function logEvent(type, detail) {
 }
 
 // =============================================
+// TIMER 30 MINUTI
+// =============================================
+function avviaTimer() {
+  var durataTotaleMs = DURATA_QUIZ_MIN * 60 * 1000;
+  var fineQuiz = Date.now() + durataTotaleMs;
+
+  // Salva ora di fine su Firebase
+  try {
+    firebase.database()
+      .ref('sessioni/' + sessionId + '/timer')
+      .set({
+        inizio: Date.now(),
+        fine: fineQuiz,
+        durata_min: DURATA_QUIZ_MIN,
+        studentId: studentId
+      });
+  } catch(e) {}
+
+  timerInterval = setInterval(function() {
+    var rimanente = fineQuiz - Date.now();
+    var display = document.getElementById('timer-display');
+
+    if (rimanente <= 0) {
+      // TEMPO SCADUTO
+      clearInterval(timerInterval);
+      display.textContent = '00:00';
+      display.className = 'danger';
+
+      // Blocca il pulsante del quiz
+      var link = document.getElementById('quiz-link');
+      if (link) {
+        link.style.background = '#888';
+        link.style.pointerEvents = 'none';
+        link.textContent = '⏰ Tempo scaduto';
+      }
+
+      // Mostra schermata tempo scaduto
+      var exp = document.getElementById('expired-screen');
+      if (exp) exp.style.display = 'flex';
+
+      // Log su Firebase
+      logEvent('tempo_scaduto', {
+        durata_min: DURATA_QUIZ_MIN,
+        n_switch: appSwitchCount,
+        totale_fuori_sec: totalAppSwitchSec
+      });
+
+      return;
+    }
+
+    // Calcola minuti e secondi
+    var minuti  = Math.floor(rimanente / 60000);
+    var secondi = Math.floor((rimanente % 60000) / 1000);
+    var testo   = (minuti < 10 ? '0' : '') + minuti + ':' + (secondi < 10 ? '0' : '') + secondi;
+
+    display.textContent = testo;
+
+    // Colore warning sotto 5 minuti
+    if (rimanente < 5 * 60 * 1000) {
+      display.className = 'danger';
+    } else if (rimanente < 10 * 60 * 1000) {
+      display.className = 'warning';
+    } else {
+      display.className = '';
+    }
+
+  }, 1000);
+}
+
+// =============================================
 // VERIFICA MATRICOLA
 // Controlla se lo studente ha modificato
 // il numero di matricola nel form
@@ -160,10 +232,10 @@ function verificaMatricola() {
 
         // Mostra avviso visivo
         var banner = document.getElementById('warning-banner');
-        banner.textContent = '⚠️ Anomalia matricola rilevata e registrata';
+        banner.textContent = '⚠️ Student ID anomaly detected and recorded';
         banner.style.display = 'block';
         setTimeout(function() {
-          banner.textContent = '⚠️ Comportamento anomalo rilevato — verrà registrato.';
+          banner.textContent = '⚠️ Suspicious behaviour detected — it will be recorded.';
           banner.style.display = 'none';
         }, 4000);
       }
@@ -206,25 +278,25 @@ function avviaMonitor() {
 
         if (secondiFuori >= 60) {
           punteggioSwitch = 40;
-          motivazione = 'Fuori >60 sec — molto sospetto';
+          motivazione = 'Away >60s — highly suspicious';
         } else if (secondiFuori >= 30) {
           punteggioSwitch = 25;
-          motivazione = 'Fuori 30-60 sec — sospetto';
+          motivazione = 'Away 30-60s — suspicious';
         } else if (secondiFuori >= 15) {
           punteggioSwitch = 15;
-          motivazione = 'Fuori 15-30 sec — possibile consultazione';
+          motivazione = 'Away 15-30s — possible consultation';
         } else if (secondiFuori >= 5) {
           punteggioSwitch = 5;
-          motivazione = 'Fuori 5-15 sec — notifica o distrazione';
+          motivazione = 'Away 5-15s — notification or distraction';
         } else {
           punteggioSwitch = 0;
-          motivazione = 'Fuori <5 sec — probabilmente accidentale';
+          motivazione = 'Away <5s — likely accidental';
         }
 
         // Punteggio extra se tanti switch in poco tempo
         if (appSwitchCount >= 5) {
           punteggioSwitch += 10;
-          motivazione += ' + switch frequenti';
+          motivazione += ' + frequent switches';
         }
 
         logEvent('app_return', {

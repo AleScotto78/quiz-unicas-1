@@ -279,7 +279,7 @@
     <h2>🔒 Admin Dashboard</h2>
     <p>Quiz Monitor — UniCassino CyberChallenge</p>
     <input type="password" id="pwd-input" placeholder="Password" onkeydown="if(event.key==='Enter') login()" />
-    <button id="login-btn" onclick="login()">Accedi</button>
+    <button id="login-btn" onclick="login()">Login</button>
     <div id="login-error"></div>
   </div>
 </div>
@@ -288,73 +288,74 @@
 <div id="dashboard">
   <header>
     <div>
-      <h1>📊 Dashboard Monitoraggio Quiz</h1>
-      <span id="last-update">Caricamento...</span>
+      <h1>📊 Quiz Monitoring Dashboard</h1>
+      <span id="last-update">Loading...</span>
     </div>
-    <button id="refresh-btn" onclick="caricaDati()">↻ Aggiorna</button>
+    <button id="refresh-btn" onclick="caricaDati()">↻ Refresh</button>
   </header>
 
   <!-- Statistiche generali -->
   <div class="stats-row">
     <div class="stat-card">
-      <div class="label">Studenti totali</div>
+      <div class="label">Total students</div>
       <div class="value" id="stat-totali">—</div>
     </div>
     <div class="stat-card danger">
-      <div class="label">Rischio ALTO</div>
+      <div class="label">HIGH risk</div>
       <div class="value" id="stat-alto">—</div>
     </div>
     <div class="stat-card warning">
-      <div class="label">Rischio MEDIO</div>
+      <div class="label">MEDIUM risk</div>
       <div class="value" id="stat-medio">—</div>
     </div>
     <div class="stat-card ok">
-      <div class="label">Rischio BASSO</div>
+      <div class="label">LOW risk</div>
       <div class="value" id="stat-basso">—</div>
     </div>
     <div class="stat-card">
-      <div class="label">Totale incolla</div>
+      <div class="label">Total pastes</div>
       <div class="value" id="stat-incolla">—</div>
     </div>
     <div class="stat-card">
-      <div class="label">Totale cambi tab</div>
+      <div class="label">Total tab switches</div>
       <div class="value" id="stat-tabs">—</div>
     </div>
   </div>
 
   <!-- Tabella studenti -->
   <div class="table-container">
-    <h2>Studenti monitorati</h2>
-    <div id="loading">Caricamento dati Firebase...</div>
+    <h2>Monitored students</h2>
+    <div id="loading">Loading Firebase data...</div>
     <table id="students-table" style="display:none;">
       <thead>
         <tr>
-          <th>Matricola</th>
-          <th>Indice rischio</th>
-          <th>Livello</th>
-          <th>Dispositivo</th>
-          <th>Switch app</th>
-          <th>Tempo fuori</th>
-          <th>Max fuori</th>
-          <th>Incolla</th>
+          <th>Student ID</th>
+          <th>Risk index</th>
+          <th>Level</th>
+          <th>Device</th>
+          <th>App switches</th>
+          <th>Time away</th>
+          <th>Max away</th>
+          <th>Paste</th>
           <th>Touch 👆</th>
-          <th>Matricola ⚠️</th>
-          <th>Durata</th>
-          <th>Dettaglio</th>
+          <th>Student ID ⚠️</th>
+          <th>Duration</th>
+          <th>Tempo ⏱</th>
+          <th>Detail</th>
         </tr>
       </thead>
       <tbody id="table-body"></tbody>
     </table>
     <div id="empty-state" class="empty-state" style="display:none;">
-      Nessun dato ancora. Aspetta che gli studenti completino il quiz.
+      No data yet. Wait for students to complete the quiz.
     </div>
   </div>
 </div>
 
 <!-- PANNELLO DETTAGLIO STUDENTE -->
 <div id="detail-panel">
-  <button id="close-detail" onclick="chiudiDettaglio()">✕</button>
-  <h3 id="detail-title">Matricola</h3>
+  <button id="close-detail" onclick="chiudiDetail()">✕</button>
+  <h3 id="detail-title">Student ID</h3>
   <div class="sub" id="detail-sub"></div>
   <div id="detail-events"></div>
 </div>
@@ -377,7 +378,7 @@
       document.getElementById('dashboard').style.display = 'block';
       caricaDati();
     } else {
-      document.getElementById('login-error').textContent = '❌ Password errata';
+      document.getElementById('login-error').textContent = '❌ Wrong password';
     }
   }
 
@@ -415,17 +416,17 @@
       }
 
       // Raggruppa sessioni per matricola (prendi la più recente)
-      const perMatricola = {};
+      const perStudent ID = {};
       for (const [sessionId, sessione] of Object.entries(data)) {
         const matricola = sessionId.split('_')[0];
         const ts = parseInt(sessionId.split('_')[1]) || 0;
-        if (!perMatricola[matricola] || ts > perMatricola[matricola].ts) {
-          perMatricola[matricola] = { ts, sessione, sessionId };
+        if (!perStudent ID[matricola] || ts > perStudent ID[matricola].ts) {
+          perStudent ID[matricola] = { ts, sessione, sessionId };
         }
       }
 
       const studenti = [];
-      for (const [matricola, { sessione, sessionId }] of Object.entries(perMatricola)) {
+      for (const [matricola, { sessione, sessionId }] of Object.entries(perStudent ID)) {
         const eventi = sessione.eventi ? Object.values(sessione.eventi) : [];
         const stats = calcolaStats(eventi);
         studenti.push({ matricola, eventi, stats, sessionId });
@@ -438,7 +439,7 @@
       aggiornaStatistiche(studenti);
 
       document.getElementById('last-update').textContent =
-        'Ultimo aggiornamento: ' + new Date().toLocaleTimeString('it-IT');
+        'Last updated: ' + new Date().toLocaleTimeString('it-IT');
     });
   }
 
@@ -453,6 +454,7 @@
     let isMobile = false;
     let maxSecFuori = 0;
     let matricolaCambiata = false;
+    let tempoScaduto = false;
 
     for (const e of eventi) {
 
@@ -474,7 +476,7 @@
         continue;
       }
 
-      // Incolla: peso extra se testo lungo (probabile AI)
+      // Paste: peso extra se testo lungo (probabile AI)
       if (e.type === 'incolla') {
         const len = e.lunghezza || 0;
         rischio += len > 100 ? 50 : len > 30 ? 30 : 10;
@@ -491,6 +493,10 @@
         matricolaCambiata = true;
       }
 
+      if (e.type === 'tempo_scaduto') {
+        tempoScaduto = true;
+      }
+
       rischio += PESI[e.type] || 0;
 
       if (e.type === 'sessione_fine' && e.durata_sec) {
@@ -505,7 +511,7 @@
       rischio, appSwitch, cambiTab, incolla,
       devtools, scorciatoie, touchSospetti,
       durataMin, totaleFuoriSec, maxSecFuori,
-      isMobile, matricolaCambiata
+      isMobile, matricolaCambiata, tempoScaduto
     };
   }
 
@@ -527,23 +533,23 @@
         rischio, appSwitch, cambiTab, incolla,
         devtools, scorciatoie, touchSospetti,
         durataMin, totaleFuoriSec, maxSecFuori,
-        isMobile, matricolaCambiata
+        isMobile, matricolaCambiata, tempoScaduto
       } = s.stats;
 
       let livello, badgeClass, barColor;
       if (rischio >= 60) {
-        livello = '🔴 ALTO'; badgeClass = 'badge-alto'; barColor = '#e05555';
+        livello = '🔴 HIGH'; badgeClass = 'badge-alto'; barColor = '#e05555';
       } else if (rischio >= 25) {
-        livello = '🟡 MEDIO'; badgeClass = 'badge-medio'; barColor = '#f0a500';
+        livello = '🟡 MEDIUM'; badgeClass = 'badge-medio'; barColor = '#f0a500';
       } else {
-        livello = '🟢 BASSO'; badgeClass = 'badge-basso'; barColor = '#3dca7a';
+        livello = '🟢 LOW'; badgeClass = 'badge-basso'; barColor = '#3dca7a';
       }
 
       const switchTotale = appSwitch + cambiTab;
       const dispositivoLabel = isMobile ? '📱 Mobile' : '💻 Desktop';
 
       const tr = document.createElement('tr');
-      tr.onclick = () => apriDettaglio(s);
+      tr.onclick = () => apriDetail(s);
       tr.innerHTML = `
         <td class="matricola-cell">${s.matricola}</td>
         <td>
@@ -566,11 +572,17 @@
         <td style="color:${incolla>0?'#f07000':'#aaa'}">${incolla}</td>
         <td style="color:${touchSospetti>0?'#f07000':'#aaa'}">${touchSospetti||'—'}</td>
         <td>${matricolaCambiata
-          ? '<span class="badge badge-alto">🚨 CAMBIATA</span>'
+          ? '<span class="badge badge-alto">🚨 CHANGED</span>'
           : '<span style="color:#3dca7a">✓ OK</span>'
         }</td>
         <td style="color:#aaa">${durataMin > 0 ? durataMin + ' min' : '—'}</td>
-        <td style="color:#4f7af8; font-size:12px;">👁 Vedi →</td>
+        <td>${tempoScaduto
+          ? '<span class="badge badge-alto">⏰ EXPIRED</span>'
+          : durataMin > 0 && durataMin <= 30
+            ? '<span style="color:#3dca7a">✓ On time</span>'
+            : '<span style="color:#888">—</span>'
+        }</td>
+        <td style="color:#4f7af8; font-size:12px;">👁 View →</td>
       `;
       tbody.appendChild(tr);
     }
@@ -584,23 +596,23 @@
     const alto   = studenti.filter(s => s.stats.rischio >= 60).length;
     const medio  = studenti.filter(s => s.stats.rischio >= 25 && s.stats.rischio < 60).length;
     const basso  = studenti.filter(s => s.stats.rischio < 25).length;
-    const totIncolla = studenti.reduce((acc, s) => acc + s.stats.incolla, 0);
+    const totPaste = studenti.reduce((acc, s) => acc + s.stats.incolla, 0);
     const totTabs    = studenti.reduce((acc, s) => acc + s.stats.cambiTab, 0);
 
     document.getElementById('stat-totali').textContent  = totali;
     document.getElementById('stat-alto').textContent    = alto;
     document.getElementById('stat-medio').textContent   = medio;
     document.getElementById('stat-basso').textContent   = basso;
-    document.getElementById('stat-incolla').textContent = totIncolla;
+    document.getElementById('stat-incolla').textContent = totPaste;
     document.getElementById('stat-tabs').textContent    = totTabs;
   }
 
   // =====================
   // PANNELLO DETTAGLIO
   // =====================
-  function apriDettaglio(studente) {
+  function apriDetail(studente) {
     const panel = document.getElementById('detail-panel');
-    document.getElementById('detail-title').textContent = 'Matricola: ' + studente.matricola;
+    document.getElementById('detail-title').textContent = 'Student ID: ' + studente.matricola;
 
     const { rischio, cambiTab, incolla, devtools, durataMin } = studente.stats;
     document.getElementById('detail-sub').textContent =
@@ -618,7 +630,7 @@
     );
 
     if (eventiRilevanti.length === 0) {
-      container.innerHTML = '<p style="color:#555; font-size:13px; padding:20px 0">Nessun evento sospetto registrato.</p>';
+      container.innerHTML = '<p style="color:#555; font-size:13px; padding:20px 0">No suspicious events recorded.</p>';
     } else {
       for (const e of eventiRilevanti) {
         const div = document.createElement('div');
@@ -645,7 +657,7 @@
     panel.style.display = 'block';
   }
 
-  function chiudiDettaglio() {
+  function chiudiDetail() {
     document.getElementById('detail-panel').style.display = 'none';
   }
 
