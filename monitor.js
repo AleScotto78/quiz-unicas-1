@@ -44,7 +44,35 @@ function avviaQuiz() {
   // Costruisce il link Google Form con matricola pre-compilata
   var formBase = "https://docs.google.com/forms/d/e/1FAIpQLSfw__-VcgEdEl15oPAvf6JKy01WY2IKPezdxEFVTP6X4FvZiQ/viewform";
   var formUrl  = formBase + "?entry.733158104=" + encodeURIComponent(studentId);
+
+  // Aggiunge un parametro di verifica nell'URL del form
+  // Quando lo studente torna sulla pagina, confrontiamo la matricola
+  formUrl += "&vc=" + btoa(studentId); // vc = verifica codice (base64)
+
   document.getElementById('quiz-link').href = formUrl;
+
+  // Salva la matricola attesa su Firebase come riferimento
+  try {
+    firebase.database()
+      .ref('sessioni/' + sessionId + '/verifica')
+      .set({
+        matricola_attesa: studentId,
+        form_url_inviato: formUrl,
+        timestamp: Date.now()
+      });
+  } catch(e) {}
+
+  // Quando lo studente torna sulla pagina dopo il form,
+  // controlliamo se l'URL contiene una matricola diversa
+  window.addEventListener('focus', function() {
+    verificaMatricola();
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      verificaMatricola();
+    }
+  });
 
   // Log inizio sessione con info dispositivo
   logEvent('session_start', {
@@ -103,6 +131,46 @@ function logEvent(type, detail) {
   }
 
   console.log('[MONITOR]', evento);
+}
+
+// =============================================
+// VERIFICA MATRICOLA
+// Controlla se lo studente ha modificato
+// il numero di matricola nel form
+// =============================================
+var verificheEseguite = 0;
+
+function verificaMatricola() {
+  // Esegui al massimo 10 verifiche per non spammare Firebase
+  if (verificheEseguite >= 10) return;
+  verificheEseguite++;
+
+  // Leggi la matricola salvata su Firebase e confrontala
+  firebase.database()
+    .ref('sessioni/' + sessionId + '/verifica/matricola_attesa')
+    .once('value', function(snap) {
+      var attesa = snap.val();
+      if (!attesa) return;
+
+      // Se la matricola corrente è diversa da quella attesa
+      if (attesa !== studentId) {
+        logEvent('matricola_cambiata', {
+          matricola_originale: attesa,
+          matricola_attuale: studentId,
+          sospetto: true,
+          note: 'Lo studente ha modificato la matricola dopo l\'apertura del form'
+        });
+
+        // Mostra avviso visivo
+        var banner = document.getElementById('warning-banner');
+        banner.textContent = '⚠️ Anomalia matricola rilevata e registrata';
+        banner.style.display = 'block';
+        setTimeout(function() {
+          banner.textContent = '⚠️ Comportamento anomalo rilevato — verrà registrato.';
+          banner.style.display = 'none';
+        }, 4000);
+      }
+    });
 }
 
 // =============================================

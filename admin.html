@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Quiz Monitor UniCassino</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* LOGIN */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    #login-card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 40px;
+      width: 340px;
+      text-align: center;
+    }
+
+    #login-card h2 {
+      color: #fff;
+      margin-bottom: 6px;
+      font-size: 20px;
+    }
+
+    #login-card p {
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+
+    #login-card input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 15px;
+      margin-bottom: 14px;
+      text-align: center;
+      letter-spacing: 3px;
+    }
+
+    #login-card input:focus { outline: none; border-color: #4f7af8; }
+
+    #login-btn {
+      width: 100%;
+      padding: 11px;
+      background: #4f7af8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #login-btn:hover { background: #3a63e0; }
+    #login-error { color: #e05555; font-size: 13px; margin-top: 10px; }
+
+    /* DASHBOARD */
+    #dashboard { display: none; }
+
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 { font-size: 17px; color: #fff; font-weight: 600; }
+    header span { font-size: 13px; color: #888; }
+
+    #refresh-btn {
+      background: #4f7af8;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    #refresh-btn:hover { background: #3a63e0; }
+
+    /* CARDS STATISTICHE */
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      padding: 24px 28px 0;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 10px;
+      padding: 18px 24px;
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .stat-card .label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; color: #fff; }
+    .stat-card.danger .value { color: #e05555; }
+    .stat-card.warning .value { color: #f0a500; }
+    .stat-card.ok .value { color: #3dca7a; }
+
+    /* TABELLA */
+    .table-container {
+      padding: 24px 28px;
+      overflow-x: auto;
+    }
+
+    .table-container h2 {
+      font-size: 15px;
+      color: #fff;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: #1a1d27;
+      color: #888;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid #2a2d3a;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #1e2130;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover { background: #1e2232; }
+
+    tbody td {
+      padding: 11px 14px;
+      vertical-align: middle;
+    }
+
+    .matricola-cell { font-weight: 700; color: #fff; font-family: monospace; font-size: 14px; }
+
+    /* Badge rischio */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badge-alto    { background: #3d1515; color: #e05555; }
+    .badge-medio   { background: #3d2e00; color: #f0a500; }
+    .badge-basso   { background: #0d2e1a; color: #3dca7a; }
+
+    /* Barra rischio */
+    .risk-bar-bg {
+      background: #2a2d3a;
+      border-radius: 4px;
+      height: 6px;
+      width: 100px;
+      overflow: hidden;
+    }
+
+    .risk-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s;
+    }
+
+    /* DETTAGLIO STUDENTE */
+    #detail-panel {
+      display: none;
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 420px;
+      background: #1a1d27;
+      border-left: 1px solid #2a2d3a;
+      overflow-y: auto;
+      z-index: 200;
+      padding: 24px;
+    }
+
+    #detail-panel h3 { color: #fff; font-size: 16px; margin-bottom: 4px; }
+    #detail-panel .sub { color: #888; font-size: 12px; margin-bottom: 20px; }
+
+    #close-detail {
+      position: absolute;
+      top: 20px; right: 20px;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #22253a;
+    }
+
+    .event-time {
+      font-family: monospace;
+      font-size: 11px;
+      color: #888;
+      min-width: 50px;
+      padding-top: 2px;
+    }
+
+    .event-type {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .et-cambio_tab    { background: #3d1515; color: #e05555; }
+    .et-incolla       { background: #3d2000; color: #f07000; }
+    .et-devtools      { background: #2a1a3d; color: #a855f7; }
+    .et-scorciatoia   { background: #2a1a3d; color: #a855f7; }
+    .et-tasto_destro  { background: #1a2a3d; color: #4f7af8; }
+    .et-ping          { background: #1a2a1a; color: #3dca7a; }
+    .et-default       { background: #2a2d3a; color: #888; }
+
+    .event-detail { font-size: 11px; color: #888; margin-top: 2px; }
+
+    #loading {
+      text-align: center;
+      padding: 60px;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px;
+      color: #555;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- SCHERMATA LOGIN -->
+<div id="login-screen">
+  <div id="login-card">
+    <h2>🔒 Admin Dashboard</h2>
+    <p>Quiz Monitor — UniCassino CyberChallenge</p>
+    <input type="password" id="pwd-input" placeholder="Password" onkeydown="if(event.key==='Enter') login()" />
+    <button id="login-btn" onclick="login()">Accedi</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD PRINCIPALE -->
+<div id="dashboard">
+  <header>
+    <div>
+      <h1>📊 Dashboard Monitoraggio Quiz</h1>
+      <span id="last-update">Caricamento...</span>
+    </div>
+    <button id="refresh-btn" onclick="caricaDati()">↻ Aggiorna</button>
+  </header>
+
+  <!-- Statistiche generali -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="label">Studenti totali</div>
+      <div class="value" id="stat-totali">—</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="label">Rischio ALTO</div>
+      <div class="value" id="stat-alto">—</div>
+    </div>
+    <div class="stat-card warning">
+      <div class="label">Rischio MEDIO</div>
+      <div class="value" id="stat-medio">—</div>
+    </div>
+    <div class="stat-card ok">
+      <div class="label">Rischio BASSO</div>
+      <div class="value" id="stat-basso">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Totale incolla</div>
+      <div class="value" id="stat-incolla">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Totale cambi tab</div>
+      <div class="value" id="stat-tabs">—</div>
+    </div>
+  </div>
+
+  <!-- Tabella studenti -->
+  <div class="table-container">
+    <h2>Studenti monitorati</h2>
+    <div id="loading">Caricamento dati Firebase...</div>
+    <table id="students-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>Matricola</th>
+          <th>Indice rischio</th>
+          <th>Livello</th>
+          <th>Dispositivo</th>
+          <th>Switch app</th>
+          <th>Tempo fuori</th>
+          <th>Max fuori</th>
+          <th>Incolla</th>
+          <th>Touch 👆</th>
+          <th>Matricola ⚠️</th>
+          <th>Durata</th>
+          <th>Dettaglio</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div id="empty-state" class="empty-state" style="display:none;">
+      Nessun dato ancora. Aspetta che gli studenti completino il quiz.
+    </div>
+  </div>
+</div>
+
+<!-- PANNELLO DETTAGLIO STUDENTE -->
+<div id="detail-panel">
+  <button id="close-detail" onclick="chiudiDettaglio()">✕</button>
+  <h3 id="detail-title">Matricola</h3>
+  <div class="sub" id="detail-sub"></div>
+  <div id="detail-events"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+  // =====================
+  // PASSWORD ADMIN
+  // =====================
+  const ADMIN_PASSWORD = "unicassino2025"; // <-- cambia questa password!
+
+  function login() {
+    const pwd = document.getElementById('pwd-input').value;
+    if (pwd === ADMIN_PASSWORD) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      caricaDati();
+    } else {
+      document.getElementById('login-error').textContent = '❌ Password errata';
+    }
+  }
+
+  // =====================
+  // PESI EVENTI (indice rischio)
+  // =====================
+  const PESI = {
+    app_switch:           15,  // mobile: switch app
+    cambio_tab:           15,  // desktop: cambio scheda
+    incolla:              30,  // copia-incolla
+    devtools:             25,  // desktop: devtools
+    scorciatoia_sospetta: 20,  // desktop: F12 ecc.
+    touch_sospetto:       20,  // mobile: gesture anomala
+    tasto_destro:          3,
+    finestra_blur:         5,
+    finestra_ridotta:     10,
+  };
+
+  // =====================
+  // CARICA DATI DA FIREBASE
+  // =====================
+  function caricaDati() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('students-table').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'none';
+
+    firebase.database().ref('sessioni').once('value', function(snapshot) {
+      const data = snapshot.val();
+      document.getElementById('loading').style.display = 'none';
+
+      if (!data) {
+        document.getElementById('empty-state').style.display = 'block';
+        aggiornaStatistiche([]);
+        return;
+      }
+
+      // Raggruppa sessioni per matricola (prendi la più recente)
+      const perMatricola = {};
+      for (const [sessionId, sessione] of Object.entries(data)) {
+        const matricola = sessionId.split('_')[0];
+        const ts = parseInt(sessionId.split('_')[1]) || 0;
+        if (!perMatricola[matricola] || ts > perMatricola[matricola].ts) {
+          perMatricola[matricola] = { ts, sessione, sessionId };
+        }
+      }
+
+      const studenti = [];
+      for (const [matricola, { sessione, sessionId }] of Object.entries(perMatricola)) {
+        const eventi = sessione.eventi ? Object.values(sessione.eventi) : [];
+        const stats = calcolaStats(eventi);
+        studenti.push({ matricola, eventi, stats, sessionId });
+      }
+
+      // Ordina per rischio decrescente
+      studenti.sort((a, b) => b.stats.rischio - a.stats.rischio);
+
+      renderTabella(studenti);
+      aggiornaStatistiche(studenti);
+
+      document.getElementById('last-update').textContent =
+        'Ultimo aggiornamento: ' + new Date().toLocaleTimeString('it-IT');
+    });
+  }
+
+  // =====================
+  // CALCOLA STATISTICHE STUDENTE
+  // =====================
+  function calcolaStats(eventi) {
+    let rischio = 0;
+    let appSwitch = 0, cambiTab = 0, incolla = 0;
+    let devtools = 0, scorciatoie = 0, touchSospetti = 0;
+    let durataMin = 0, totaleFuoriSec = 0;
+    let isMobile = false;
+    let maxSecFuori = 0;
+    let matricolaCambiata = false;
+
+    for (const e of eventi) {
+
+      if (e.dispositivo === 'mobile') isMobile = true;
+
+      // App switch mobile — peso extra se >15 secondi fuori
+      if (e.type === 'app_switch') {
+        appSwitch++;
+        rischio += 15;
+        continue;
+      }
+
+      // Rientro — calcola tempo fuori
+      if (e.type === 'app_return') {
+        const sec = e.secondi_fuori || 0;
+        totaleFuoriSec += sec;
+        if (sec > maxSecFuori) maxSecFuori = sec;
+        // Peso extra se >15 sec fuori (abbastanza per copiare da AI)
+        if (sec > 15) rischio += 20;
+        else if (sec > 5) rischio += 8;
+        continue;
+      }
+
+      // Incolla: peso extra se testo lungo (probabile AI)
+      if (e.type === 'incolla') {
+        const len = e.lunghezza || 0;
+        rischio += len > 100 ? 50 : len > 30 ? 30 : 10;
+        incolla++;
+        continue;
+      }
+
+      if (e.type === 'devtools' && e.aperto) devtools++;
+      if (e.type === 'cambio_tab') cambiTab++;
+      if (e.type === 'scorciatoia_sospetta') scorciatoie++;
+      if (e.type === 'touch_sospetto') touchSospetti++;
+      if (e.type === 'matricola_cambiata') {
+        rischio += 40;
+        matricolaCambiata = true;
+      }
+
+      rischio += PESI[e.type] || 0;
+
+      if (e.type === 'sessione_fine' && e.durata_sec) {
+        durataMin = Math.round(e.durata_sec / 60);
+        if (e.totale_fuori_sec) totaleFuoriSec = e.totale_fuori_sec;
+      }
+    }
+
+    rischio = Math.min(rischio, 100);
+
+    return {
+      rischio, appSwitch, cambiTab, incolla,
+      devtools, scorciatoie, touchSospetti,
+      durataMin, totaleFuoriSec, maxSecFuori,
+      isMobile, matricolaCambiata
+    };
+  }
+
+  // =====================
+  // RENDER TABELLA
+  // =====================
+  function renderTabella(studenti) {
+    if (studenti.length === 0) {
+      document.getElementById('empty-state').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('students-table').style.display = 'table';
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+
+    for (const s of studenti) {
+      const {
+        rischio, appSwitch, cambiTab, incolla,
+        devtools, scorciatoie, touchSospetti,
+        durataMin, totaleFuoriSec, maxSecFuori,
+        isMobile, matricolaCambiata
+      } = s.stats;
+
+      let livello, badgeClass, barColor;
+      if (rischio >= 60) {
+        livello = '🔴 ALTO'; badgeClass = 'badge-alto'; barColor = '#e05555';
+      } else if (rischio >= 25) {
+        livello = '🟡 MEDIO'; badgeClass = 'badge-medio'; barColor = '#f0a500';
+      } else {
+        livello = '🟢 BASSO'; badgeClass = 'badge-basso'; barColor = '#3dca7a';
+      }
+
+      const switchTotale = appSwitch + cambiTab;
+      const dispositivoLabel = isMobile ? '📱 Mobile' : '💻 Desktop';
+
+      const tr = document.createElement('tr');
+      tr.onclick = () => apriDettaglio(s);
+      tr.innerHTML = `
+        <td class="matricola-cell">${s.matricola}</td>
+        <td>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="risk-bar-bg">
+              <div class="risk-bar-fill" style="width:${rischio}%; background:${barColor}"></div>
+            </div>
+            <span style="color:${barColor}; font-weight:700; font-size:13px;">${rischio}</span>
+          </div>
+        </td>
+        <td><span class="badge ${badgeClass}">${livello}</span></td>
+        <td style="color:#aaa; font-size:12px;">${dispositivoLabel}</td>
+        <td style="color:${switchTotale>2?'#e05555':'#aaa'}">${switchTotale}</td>
+        <td style="color:${totaleFuoriSec>30?'#e05555':totaleFuoriSec>10?'#f0a500':'#aaa'}">
+          ${totaleFuoriSec > 0 ? totaleFuoriSec + 's' : '—'}
+        </td>
+        <td style="color:${maxSecFuori>15?'#e05555':'#aaa'}">
+          ${maxSecFuori > 0 ? maxSecFuori + 's' : '—'}
+        </td>
+        <td style="color:${incolla>0?'#f07000':'#aaa'}">${incolla}</td>
+        <td style="color:${touchSospetti>0?'#f07000':'#aaa'}">${touchSospetti||'—'}</td>
+        <td>${matricolaCambiata
+          ? '<span class="badge badge-alto">🚨 CAMBIATA</span>'
+          : '<span style="color:#3dca7a">✓ OK</span>'
+        }</td>
+        <td style="color:#aaa">${durataMin > 0 ? durataMin + ' min' : '—'}</td>
+        <td style="color:#4f7af8; font-size:12px;">👁 Vedi →</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // =====================
+  // STATISTICHE GLOBALI
+  // =====================
+  function aggiornaStatistiche(studenti) {
+    const totali = studenti.length;
+    const alto   = studenti.filter(s => s.stats.rischio >= 60).length;
+    const medio  = studenti.filter(s => s.stats.rischio >= 25 && s.stats.rischio < 60).length;
+    const basso  = studenti.filter(s => s.stats.rischio < 25).length;
+    const totIncolla = studenti.reduce((acc, s) => acc + s.stats.incolla, 0);
+    const totTabs    = studenti.reduce((acc, s) => acc + s.stats.cambiTab, 0);
+
+    document.getElementById('stat-totali').textContent  = totali;
+    document.getElementById('stat-alto').textContent    = alto;
+    document.getElementById('stat-medio').textContent   = medio;
+    document.getElementById('stat-basso').textContent   = basso;
+    document.getElementById('stat-incolla').textContent = totIncolla;
+    document.getElementById('stat-tabs').textContent    = totTabs;
+  }
+
+  // =====================
+  // PANNELLO DETTAGLIO
+  // =====================
+  function apriDettaglio(studente) {
+    const panel = document.getElementById('detail-panel');
+    document.getElementById('detail-title').textContent = 'Matricola: ' + studente.matricola;
+
+    const { rischio, cambiTab, incolla, devtools, durataMin } = studente.stats;
+    document.getElementById('detail-sub').textContent =
+      `Rischio: ${rischio}/100 · ${cambiTab} cambi tab · ${incolla} incolla · ${durataMin} min`;
+
+    const container = document.getElementById('detail-events');
+    container.innerHTML = '';
+
+    // Ordina eventi per tempo
+    const eventi = [...studente.eventi].sort((a, b) => a.elapsed_sec - b.elapsed_sec);
+
+    // Filtra solo eventi rilevanti (escludi ping e session_start)
+    const eventiRilevanti = eventi.filter(e =>
+      !['ping', 'session_start', 'finestra_focus', 'ritorno_tab'].includes(e.type)
+    );
+
+    if (eventiRilevanti.length === 0) {
+      container.innerHTML = '<p style="color:#555; font-size:13px; padding:20px 0">Nessun evento sospetto registrato.</p>';
+    } else {
+      for (const e of eventiRilevanti) {
+        const div = document.createElement('div');
+        div.className = 'event-item';
+
+        const typeClass = 'et-' + (e.type.includes('scorciatoia') ? 'scorciatoia' : e.type) || 'et-default';
+
+        let dettaglio = '';
+        if (e.type === 'incolla' && e.anteprima) dettaglio = `"${e.anteprima}..."`;
+        if (e.type === 'scorciatoia_sospetta' && e.tasto) dettaglio = e.tasto;
+        if (e.type === 'devtools') dettaglio = e.aperto ? 'Aperto' : 'Chiuso';
+
+        div.innerHTML = `
+          <span class="event-time">+${e.elapsed_sec}s</span>
+          <div>
+            <span class="event-type ${typeClass}">${e.type.replace(/_/g, ' ')}</span>
+            ${dettaglio ? `<div class="event-detail">${dettaglio}</div>` : ''}
+          </div>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    panel.style.display = 'block';
+  }
+
+  function chiudiDettaglio() {
+    document.getElementById('detail-panel').style.display = 'none';
+  }
+
+  // Aggiornamento automatico ogni 60 secondi
+  setInterval(caricaDati, 60000);
+</script>
+</body>
+</html>
