@@ -44,11 +44,7 @@ function avviaQuiz() {
   // Costruisce il link Google Form con matricola pre-compilata
   // Usa sempre l'URL senza /u/X/ per evitare problemi con account multipli
   var formBase = "https://docs.google.com/forms/d/e/1FAIpQLSfw__-VcgEdEl15oPAvf6JKy01WY2IKPezdxEFVTP6X4FvZiQ/viewform";
-  var formUrl  = formBase + "?entry.733158104=" + encodeURIComponent(studentId) + "&usp=sf_link";
-
-  // Aggiunge un parametro di verifica nell'URL del form
-  // Quando lo studente torna sulla pagina, confrontiamo la matricola
-  formUrl += "&vc=" + btoa(studentId); // vc = verifica codice (base64)
+  var formUrl  = formBase + "?entry.733158104=" + encodeURIComponent(studentId);
 
   document.getElementById('quiz-link').href = formUrl;
 
