@@ -268,26 +268,40 @@ function avviaMonitor() {
         var punteggioSwitch = 0;
         var motivazione = '';
 
+        // Punteggio per singolo switch — uguale su mobile e desktop
         if (secondiFuori >= 60) {
-          punteggioSwitch = 40;
-          motivazione = 'Away >60s — highly suspicious';
+          punteggioSwitch = 50;
+          motivazione = 'Away >60s — almost certainly AI consultation';
         } else if (secondiFuori >= 30) {
-          punteggioSwitch = 25;
-          motivazione = 'Away 30-60s — suspicious';
+          punteggioSwitch = 35;
+          motivazione = 'Away 30-60s — probable AI consultation';
         } else if (secondiFuori >= 15) {
-          punteggioSwitch = 15;
+          punteggioSwitch = 20;
           motivazione = 'Away 15-30s — possible consultation';
         } else if (secondiFuori >= 5) {
-          punteggioSwitch = 5;
+          punteggioSwitch = 8;
           motivazione = 'Away 5-15s — notification or distraction';
         } else {
           punteggioSwitch = 0;
           motivazione = 'Away <5s — likely accidental';
         }
 
+        // Bonus per switch frequenti
         if (appSwitchCount >= 5) {
+          punteggioSwitch += 20;
+          motivazione += ' + very frequent switches (5+)';
+        } else if (appSwitchCount >= 3) {
           punteggioSwitch += 10;
-          motivazione += ' + frequent switches';
+          motivazione += ' + frequent switches (3+)';
+        }
+
+        // Bonus per tempo fuori totale elevato
+        if (totalAppSwitchSec > 120) {
+          punteggioSwitch += 25;
+          motivazione += ' + total away >120s';
+        } else if (totalAppSwitchSec > 60) {
+          punteggioSwitch += 15;
+          motivazione += ' + total away >60s';
         }
 
         logEvent('app_return', {

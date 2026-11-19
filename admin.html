@@ -559,13 +559,20 @@
         continue;
       }
 
-      // Rientro — usa il punteggio calcolato dal monitor
+      // Rientro — ricalcola con la nuova logica unificata
       if (e.type === 'app_return') {
         const sec = e.secondi_fuori || 0;
         totaleFuoriSec += sec;
         if (sec > maxSecFuori) maxSecFuori = sec;
-        // Usa il punteggio già calcolato dal monitor.js
-        rischio += e.punteggio_switch || 0;
+
+        // Ricalcola punteggio switch con logica unificata
+        let ps = 0;
+        if      (sec >= 60) ps = 50;
+        else if (sec >= 30) ps = 35;
+        else if (sec >= 15) ps = 20;
+        else if (sec >= 5)  ps = 8;
+        else                ps = 0;
+        rischio += ps;
         continue;
       }
 
@@ -597,6 +604,15 @@
         if (e.totale_fuori_sec) totaleFuoriSec = e.totale_fuori_sec;
       }
     }
+
+    // Bonus switch frequenti — uguale per mobile e desktop
+    const switchTot = appSwitch + cambiTab;
+    if      (switchTot >= 5) rischio += 20;
+    else if (switchTot >= 3) rischio += 10;
+
+    // Bonus tempo fuori totale elevato
+    if      (totaleFuoriSec > 120) rischio += 25;
+    else if (totaleFuoriSec > 60)  rischio += 15;
 
     rischio = Math.min(rischio, 100);
 
